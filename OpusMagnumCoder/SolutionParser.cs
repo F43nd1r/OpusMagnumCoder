@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace OpusMagnumCoder
 {
@@ -65,6 +66,19 @@ namespace OpusMagnumCoder
                     part.Number = reader.ReadInt32();
 
                     solution.Parts.Add(part);
+                }
+
+                List<Part> tracks = solution.Parts.Where(p => p.Name == "track").ToList();
+                foreach (Part arm in solution.Parts.Where(p => p.Name.StartsWith("arm")))
+                {
+                    foreach (Part track in tracks)
+                    {
+                        if (track.TrackPositions.Contains(arm.Position - track.Position))
+                        {
+                            arm.TrackLoopLength = track.TrackPositions.Count;
+                            break;
+                        }
+                    }
                 }
 
                 return solution;

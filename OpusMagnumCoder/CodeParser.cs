@@ -16,10 +16,11 @@ namespace OpusMagnumCoder
             var index = 0;
             var state = new ArmState {Rotation = arm.Rotation, TrackPosition = 0, Length = arm.Size, Grabbed = false};
             var initialState = state;
-            return StepsToString(arm.Steps, ref index, ref state, initialState);
+            return StepsToString(arm.Steps, ref index, ref state, initialState, arm.TrackLoopLength);
         }
 
-        private static string StepsToString(IList<Step> steps, ref int index, ref ArmState state, ArmState initialState)
+        private static string StepsToString(IList<Step> steps, ref int index, ref ArmState state, ArmState initialState,
+            int trackLoopLength)
         {
             var result = "";
             foreach (var step in steps)
@@ -43,7 +44,7 @@ namespace OpusMagnumCoder
                         {
                             result += a.ToString().ToLowerInvariant() + "\r\n";
                             return t + 1;
-                        }, state, initialState);
+                        }, state, initialState, trackLoopLength);
                         state = initialState;
                         break;
                     case Action.REPEAT:
@@ -58,7 +59,7 @@ namespace OpusMagnumCoder
 
                         var start = steps[i + 1].Index;
                         var subIndex = start;
-                        result += StepsToString(replay, ref subIndex, ref state, initialState);
+                        result += StepsToString(replay, ref subIndex, ref state, initialState, trackLoopLength);
                         index += subIndex - start;
                         break;
                     default:
@@ -205,22 +206,56 @@ namespace OpusMagnumCoder
                 }
         }
 
-        private static T GoTo<T>(T t, Func<T, Action, T> action, ArmState fromState, ArmState toState)
+        private static T GoTo<T>(T t, Func<T, Action, T> action, ArmState fromState, ArmState toState,
+            int trackLoopLength)
         {
-            foreach (var tuple in new (Func<ArmState, ArmState, bool>, Action)[]
+            int rotateBy = (toState.Rotation - fromState.Rotation + 6) % 6;
+            if (rotateBy <= 3)
             {
-                ((from, to) => from.Rotation > to.Rotation, Action.ROTATE_CLOCKWISE),
-                ((from, to) => from.Rotation < to.Rotation, Action.ROTATE_COUNTERCLOCKWISE),
-                ((from, to) => from.TrackPosition < to.TrackPosition, Action.FORWARD),
-                ((from, to) => from.TrackPosition > to.TrackPosition, Action.BACK),
-                ((from, to) => from.Length < to.Length, Action.EXTEND),
-                ((from, to) => from.Length > to.Length, Action.RETRACT)
-            })
-                while (tuple.Item1(fromState, toState))
+                for (; rotateBy > 0; rotateBy--)
                 {
-                    fromState = tuple.Item2.Apply(fromState);
-                    t = action.Invoke(t, tuple.Item2);
+                    fromState = Action.ROTATE_COUNTERCLOCKWISE.Apply(fromState);
+                    t = action.Invoke(t, Action.ROTATE_COUNTERCLOCKWISE);
                 }
+            }
+            else
+            {
+                for (; rotateBy < 6; rotateBy++)
+                {
+                    fromState = Action.ROTATE_CLOCKWISE.Apply(fromState);
+                    t = action.Invoke(t, Action.ROTATE_CLOCKWISE);
+                }
+            }
+
+            int moveBy = (toState.TrackPosition - fromState.TrackPosition + trackLoopLength) % trackLoopLength;
+            if (moveBy <= trackLoopLength / 2)
+            {
+                for (; moveBy > 0; moveBy--)
+                {
+                    fromState = Action.FORWARD.Apply(fromState);
+                    t = action.Invoke(t, Action.FORWARD);
+                }
+            }
+            else
+            {
+                for (; moveBy < 6; moveBy++)
+                {
+                    fromState = Action.BACK.Apply(fromState);
+                    t = action.Invoke(t, Action.BACK);
+                }
+            }
+
+            while (fromState.Length < toState.Length)
+            {
+                fromState = Action.EXTEND.Apply(fromState);
+                t = action.Invoke(t, Action.EXTEND);
+            }
+
+            while (fromState.Length < toState.Length)
+            {
+                fromState = Action.RETRACT.Apply(fromState);
+                t = action.Invoke(t, Action.RETRACT);
+            }
 
             return t;
         }
@@ -231,7 +266,7 @@ namespace OpusMagnumCoder
             {
                 arm.Steps.Add(a.AsStep(i++));
                 return i;
-            }, state, target);
+            }, state, target, arm.TrackLoopLength);
             state = target;
         }
 
