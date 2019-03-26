@@ -10,6 +10,7 @@ namespace OpusMagnumCoder
     {
         private readonly Dictionary<string, string> _macros = new Dictionary<string, string>();
         private readonly ConcurrentDictionary<string, int> _signals = new ConcurrentDictionary<string, int>();
+        private readonly object Lock = new object();
 
         public string ToCode(Part arm)
         {
@@ -175,7 +176,11 @@ namespace OpusMagnumCoder
                         var signal = new Regex(@"signal (.+) *").Match(line);
                         if (signal.Success)
                         {
-                            _signals.TryAdd(signal.Groups[1].Value, index);
+                            lock (Lock)
+                            {
+                                _signals.TryAdd(signal.Groups[1].Value, index);
+                                Monitor.PulseAll(Lock);
+                            }
                             break;
                         }
 
@@ -183,12 +188,15 @@ namespace OpusMagnumCoder
                         if (wait.Success)
                         {
                             int signalIndex;
-                            var tries = 0;
-                            while (!_signals.TryGetValue(wait.Groups[1].Value, out signalIndex))
+                            lock (Lock)
                             {
-                                tries++;
-                                if (tries > 10000) throw new Exception(line + " without signal");
-                                Thread.Sleep(10);
+                                while (!_signals.TryGetValue(wait.Groups[1].Value, out signalIndex))
+                                {
+                                    if (!Monitor.Wait(Lock, 100))
+                                    {
+                                        throw new Exception(line + " without signal");
+                                    }
+                                }
                             }
 
                             if (index < signalIndex) index = signalIndex;

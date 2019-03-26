@@ -12,6 +12,6 @@ namespace OpusMagnumCoder
         public int Size;
         public List<Step> Steps;
         public List<Position> TrackPositions;
-        public int TrackLoopLength;
+        public int TrackLoopLength = 1;
     }
 }
