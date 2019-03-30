@@ -214,7 +214,7 @@ namespace OpusMagnumCoder
                 }
         }
 
-        private static T GoTo<T>(T t, Func<T, Action, T> action, ArmState fromState, ArmState toState,
+        public static T GoTo<T>(T t, Func<T, Action, T> action, ArmState fromState, ArmState toState,
             int trackLoopLength)
         {
             int rotateBy = (toState.Rotation - fromState.Rotation + 6) % 6;

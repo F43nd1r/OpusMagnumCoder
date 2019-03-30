@@ -1,6 +1,6 @@
 ﻿namespace OpusMagnumCoder
 {
-    partial class NameDialog
+    sealed partial class TextDialog
     {
         /// <summary>
         /// Required designer variable.
@@ -46,7 +46,6 @@
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(120, 23);
             this.button1.TabIndex = 1;
-            this.button1.Text = "Create";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
@@ -68,8 +67,7 @@
             this.Controls.Add(this.button2);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.textBox1);
-            this.Name = "NameDialog";
-            this.Text = "NameDialog";
+            this.Name = "TextDialog";
             this.ResumeLayout(false);
             this.PerformLayout();
 

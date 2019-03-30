@@ -12,10 +12,10 @@ namespace OpusMagnumCoder
     public partial class Form1 : Form
     {
         private readonly CodeParser _codeParser = new CodeParser();
-        private readonly List<(string, TextBox)> _macros;
+        private readonly List<(string, RichTextBox)> _macros;
         private Solution _solution;
         private readonly SolutionParser _solutionParser = new SolutionParser();
-        private List<(TextBox, Part)> _textMappings;
+        private List<(RichTextBox, Part)> _textMappings;
         private Panel _dragging;
         private Panel _placeHolder;
         private Point _mouseDown;
@@ -23,7 +23,11 @@ namespace OpusMagnumCoder
         public Form1()
         {
             InitializeComponent();
-            _macros = new List<(string, TextBox)>();
+            _macros = new List<(string, RichTextBox)>();
+            saveToolStripMenuItem.Enabled = false;
+            saveAsToolStripMenuItem.Enabled = false;
+            exportToolStripMenuItem.Enabled = false;
+            macroToolStripMenuItem.Enabled = false;
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -55,18 +59,12 @@ namespace OpusMagnumCoder
             }
 
             panel1.Controls.Clear();
-            _textMappings = new List<(TextBox, Part)>();
+            _textMappings = new List<(RichTextBox, Part)>();
             foreach (var part in _solution.Parts.Where(p => p.Name.StartsWith("arm") || p.Name == "piston")
                 .OrderBy(p => p.Number))
             {
-                var groupBox = AddPanel();
+                var (groupBox, textBox) = AddPanel();
                 groupBox.Text = "Arm " + (part.Number + 1);
-                var textBox = new TextBox
-                {
-                    Dock = DockStyle.Fill,
-                    Multiline = true
-                };
-                groupBox.Controls.Add(textBox);
                 if (code?["arm" + part.Number] != null)
                 {
                     textBox.Text = code["arm" + part.Number];
@@ -76,35 +74,22 @@ namespace OpusMagnumCoder
                 {
                     textBox.Text = _codeParser.ToCode(part);
                 }
+
                 _textMappings.Add((textBox, part));
             }
 
             if (code != null)
+            {
                 foreach (var m in code)
                 {
                     CreateMacro(m.Key, m.Value);
                 }
-        }
-
-        private void exportToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            _codeParser.Clear();
-            _macros.ForEach(m => _codeParser.AddMacro(m.Item1, m.Item2.Text));
-            var threads = new List<Thread>();
-            foreach (var mapping in _textMappings)
-            {
-                var t = new Thread(() => _codeParser.FillFromCode(mapping.Item2, mapping.Item1.Text));
-                threads.Add(t);
-                t.Start();
             }
 
-            threads.ForEach(t => t.Join());
-            var fileDialog = new SaveFileDialog {FileName = _solution.PuzzleName + "-generated.solution"};
-            if (fileDialog.ShowDialog() != DialogResult.OK) return;
-            using (var stream = File.Open(fileDialog.FileName, FileMode.OpenOrCreate))
-            {
-                _solutionParser.Write(_solution, stream);
-            }
+            saveToolStripMenuItem.Enabled = true;
+            saveAsToolStripMenuItem.Enabled = true;
+            exportToolStripMenuItem.Enabled = true;
+            macroToolStripMenuItem.Enabled = true;
         }
 
         private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -121,38 +106,37 @@ namespace OpusMagnumCoder
 
         private void addNewToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var dialog = new NameDialog("macro" + (_macros.Count + 1));
+            var dialog = new TextDialog("macro" + (_macros.Count + 1), "Macro name", "Create");
             if (dialog.ShowDialog() != DialogResult.OK) return;
             CreateMacro(dialog.UserInput, "");
         }
 
         private void CreateMacro(string name, string code)
         {
-            var groupBox = AddPanel();
+            var (groupBox, textBox) = AddPanel();
             groupBox.Text = name;
-            var textBox = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Multiline = true,
-                Text = code
-            };
+            textBox.Text = code;
             groupBox.MouseClick += (sender, e) =>
             {
                 if (e.Button == MouseButtons.Right)
                 {
-                    var dialog = new NameDialog(groupBox.Text);
+                    var dialog = new TextDialog(groupBox.Text, "Macro name", "Update");
                     if (dialog.ShowDialog() != DialogResult.OK) return;
                     _macros.Remove((groupBox.Text, textBox));
                     groupBox.Text = dialog.UserInput;
                     _macros.Add((groupBox.Text, textBox));
                 }
             };
-            groupBox.Controls.Add(textBox);
             _macros.Add((groupBox.Text, textBox));
         }
 
-        private GroupBox AddPanel()
+        private (GroupBox, RichTextBox) AddPanel()
         {
+            var textBox = new RichTextBox
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true
+            };
             var groupBox = new GroupBox
             {
                 Dock = DockStyle.Fill,
@@ -188,7 +172,7 @@ namespace OpusMagnumCoder
                     {
                         _dragging.SendToBack();
                         Control replace = panel1.GetChildAtPoint(new Point(_dragging.Left + e.X, _dragging.Top + e.Y));
-                        
+
                         if (replace != null)
                         {
                             index = panel1.Controls.GetChildIndex(replace);
@@ -213,16 +197,52 @@ namespace OpusMagnumCoder
                     {
                         panel1.Controls.SetChildIndex(_dragging, panel1.Controls.GetChildIndex(replace));
                     }
+
                     _dragging.Dock = DockStyle.Left;
                     panel1.Controls.Remove(_placeHolder);
                     _dragging = null;
                     _placeHolder = null;
                 }
             };
+            groupBox.Controls.Add(textBox);
             panel.Controls.Add(groupBox);
             panel1.Controls.Add(panel);
             panel.BringToFront();
-            return groupBox;
+            return (groupBox, textBox);
+        }
+
+        private void toOriginalPuzzleToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Export();
+        }
+
+        private void Export()
+        {
+            _codeParser.Clear();
+            _macros.ForEach(m => _codeParser.AddMacro(m.Item1, m.Item2.Text));
+            var threads = new List<Thread>();
+            foreach (var mapping in _textMappings)
+            {
+                var t = new Thread(() => _codeParser.FillFromCode(mapping.Item2, mapping.Item1.Text));
+                threads.Add(t);
+                t.Start();
+            }
+
+            threads.ForEach(t => t.Join());
+            var fileDialog = new SaveFileDialog {FileName = _solution.PuzzleName + "-generated.solution"};
+            if (fileDialog.ShowDialog() != DialogResult.OK) return;
+            using (var stream = File.Open(fileDialog.FileName, FileMode.OpenOrCreate))
+            {
+                _solutionParser.Write(_solution, stream);
+            }
+        }
+
+        private void toAnotherPuzzleToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var dialog = new TextDialog(_solution.PuzzleName, "Puzzle name", "Confirm");
+            if (dialog.ShowDialog() != DialogResult.Yes) return;
+            _solution.PuzzleName = dialog.UserInput;
+            Export();
         }
     }
 }

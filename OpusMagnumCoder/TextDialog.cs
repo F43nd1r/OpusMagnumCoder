@@ -3,12 +3,14 @@ using System.Windows.Forms;
 
 namespace OpusMagnumCoder
 {
-    public partial class NameDialog : Form
+    public sealed partial class TextDialog : Form
     {
-        public NameDialog(string initialValue)
+        public TextDialog(string initialValue, string title, string positiveButtonText)
         {
             InitializeComponent();
             textBox1.Text = initialValue;
+            Text = title;
+            button1.Text = positiveButtonText;
         }
 
         public string UserInput => textBox1.Text;
