@@ -259,7 +259,7 @@ namespace OpusMagnumCoder
                 t = action.Invoke(t, Action.EXTEND);
             }
 
-            while (fromState.Length < toState.Length)
+            while (fromState.Length > toState.Length)
             {
                 fromState = Action.RETRACT.Apply(fromState);
                 t = action.Invoke(t, Action.RETRACT);

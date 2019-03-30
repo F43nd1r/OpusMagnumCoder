@@ -240,7 +240,7 @@ namespace OpusMagnumCoder
         private void toAnotherPuzzleToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var dialog = new TextDialog(_solution.PuzzleName, "Puzzle name", "Confirm");
-            if (dialog.ShowDialog() != DialogResult.Yes) return;
+            if (dialog.ShowDialog() != DialogResult.OK) return;
             _solution.PuzzleName = dialog.UserInput;
             Export();
         }
